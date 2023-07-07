@@ -69,4 +69,15 @@ public class Employee
 		m_salary = salary;
 	}
 
+
+	////////////////////////////////////////////////////////////////////////
+	public void setEmployeeId(int m_employeeId)
+	{
+		this.m_employeeId = m_employeeId;
+		if(current_id < m_employeeId)
+		{
+			current_id = m_employeeId;
+		}
+	}
+	////////////////////////////////////////////////////////////////////////
 }

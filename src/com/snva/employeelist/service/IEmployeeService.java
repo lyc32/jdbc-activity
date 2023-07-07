@@ -11,7 +11,7 @@ import com.snva.employeelist.service.exception.EmployeeServiceException;
 public interface IEmployeeService
 {
 	public void addNewEmployee(Employee employee);
-	public void removeEmployeeByName(List<Employee> employeelist);
+	public int removeEmployeeByName(List<Employee> employeelist); // change return value
 	public List<Employee> showAllEmployeeInformation() throws EmployeeServiceException;
 	
 }

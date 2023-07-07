@@ -1,5 +1,7 @@
 package com.snva.employeelist.uiservice;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 
 import com.snva.employeelist.bean.Employee;
@@ -7,6 +9,7 @@ import com.snva.employeelist.service.EmployeeServiceImpl;
 import com.snva.employeelist.service.IEmployeeService;
 import com.snva.employeelist.service.exception.EmployeeServiceException;
 import com.snva.employeelist.util.ReadUtil;
+import com.snva.employeelist.database.*;
 
 
 /**
@@ -19,6 +22,8 @@ public class EmployeeUIServiceImpl implements IEmployeeUIService
 
 	private IEmployeeService m_employeeService;
 
+	private ConnectDB connectDB;
+
 	/**
 	 *This is the default constructor of the class which creates objects of
 	 *all the instance variables of the class.
@@ -27,6 +32,63 @@ public class EmployeeUIServiceImpl implements IEmployeeUIService
 	{
 		m_readUtil= new ReadUtil();
 		m_employeeService=new EmployeeServiceImpl();
+
+		////////////////////////////////////////////////////////////////////////
+		connectDB = new ConnectDB(DataBaseConfig.driver, DataBaseConfig.url, DataBaseConfig.userName, DataBaseConfig.password);
+		if(connectDB.connectToDataBase())
+		{
+			int state = new TableOperation().creatTable(connectDB.getConnection(),"Employee", "(employeeId Int(5), firstName varchar(20), lastName varchar(20), designation varchar(20), contactNumber double, salary double, dateOfBirth date, dateOfJoining date)");
+			if(state == 0)
+			{
+				System.out.println("======= Sync Data ======");
+				ResultSet resultSet = new JdbcCRUD().getAllData(connectDB.getConnection(), "*", "Employee");
+				if(resultSet != null)
+				{
+					try
+					{
+						int i = 0;
+						while (resultSet.next())
+						{
+							Employee employee = new Employee();
+							employee.setEmployeeId(resultSet.getInt("employeeId"));
+							employee.setFirstName(resultSet.getString("firstName"));
+							employee.setLastName (resultSet.getString("lastName"));
+							employee.setDesignation(resultSet.getString("designation"));
+							employee.setContactNumber(resultSet.getDouble("contactNumber"));
+							employee.setSalary(resultSet.getDouble("salary"));
+							employee.setDateOfBirth(resultSet.getDate("dateOfBirth"));
+							employee.setDateOfJoining(resultSet.getDate("dateOfJoining"));
+							m_employeeService.addNewEmployee(employee);
+							i++;
+						}
+						System.out.println("Get " + i + " records.");
+						System.out.println("[Sync Data Success]");
+						System.out.println("========= END ========\n");
+					}
+					catch (SQLException e)
+					{
+						System.out.println(e);
+						System.out.println("[Sync Data Failed]");
+						System.out.println("========= END ========\n");
+						System.exit(0);
+					}
+				}
+			}
+			else if(state == 1)
+			{
+				System.out.println("[success] create table 'Employee'");
+			}
+			else
+			{
+				System.out.println("[Failed] create table 'Employee'");
+				System.exit(0);
+			}}
+		else
+		{
+			System.out.println("Can Not Connect to DataBase, Exit");
+			System.exit(0);
+		}
+		////////////////////////////////////////////////////////////////////////
 	}
 	/**
 	 *This function read an employee detail and add that employee to the list.
@@ -42,6 +104,21 @@ public class EmployeeUIServiceImpl implements IEmployeeUIService
 		employee.setDateOfBirth(m_readUtil.readDate("Input Date of Birth (DD-MM-YYYY)","enter valid date format(DD-MM-YYYY)"));
 		employee.setDateOfJoining(m_readUtil.readDate("Input Date Of Joining (DD-MM-YYYY)","enter valid date format(DD-MM-YYYY)"));
 		m_employeeService.addNewEmployee(employee);
+
+		////////////////////////////////////////////////////////////////////////
+		int result = new JdbcCRUD().insertData(connectDB.getConnection(),
+				"`Employee`",
+				"(`employeeId`, `firstName`, `lastName`, `designation`, `contactNumber`, `salary`, `dateOfBirth`, `dateOfJoining`)",
+				"("+ employee.getEmployeeId() + ", '" + employee.getFirstName() + "','" +employee.getLastName() + "','" + employee.getDesignation() + "',"+ employee.getContactNumber() + ","+employee.getSalary()+",'" +  new java.sql.Date(employee.getDateOfBirth().getTime()) +"','" +  new java.sql.Date(employee.getDateOfJoining().getTime())+"')");
+		if(result == 0)
+		{
+			List<Employee> tmp = new ArrayList<>();
+			tmp.add(employee);
+			System.out.println("[DataBase Error] RollBack");
+			m_employeeService.removeEmployeeByName(tmp);
+		}
+
+		////////////////////////////////////////////////////////////////////////
 	}
 	/**
 	 * This function remove an employee if the list contains that employee.
@@ -50,19 +127,35 @@ public class EmployeeUIServiceImpl implements IEmployeeUIService
 	 * @exception EmployeeServiceException This exception is thrown when user
 	 * want to see the employee detail and the list is empty.
 	 */
-	public void removeEmployee(){
+	public void removeEmployee()
+	{
 		List<Employee> employeelist1;
-
-		try{
+		try
+		{
 			List<Employee> employeelist=m_employeeService.showAllEmployeeInformation();
 			employeelist1=new ArrayList<Employee>();
 			String name = m_readUtil.readString("Enter Employee name(or any part of name) : ","String cannot be empty");
 			employeelist1=searchEmployeeByName(name);
-			m_employeeService.removeEmployeeByName(employeelist1);
 
-		}catch(EmployeeServiceException e){
+			int index = m_employeeService.removeEmployeeByName(employeelist1);
+			////////////////////////////////////////////////////////////////////////
+			if(index >= 0)
+			{
+				int result = new JdbcCRUD().deleteData(connectDB.getConnection(),"Employee", "employeeId=" + employeelist1.get(index).getEmployeeId());
+				if(result == 0)
+				{
+					m_employeeService.addNewEmployee(employeelist1.get(index));
+					System.out.println("[DataBase Error] RollBack");
+				}
+			}
+			////////////////////////////////////////////////////////////////////////
+		}
+		catch(EmployeeServiceException e)
+		{
 			System.out.println(e.getMessage());
-		}catch(NullPointerException e){
+		}
+		catch(NullPointerException e)
+		{
 			System.out.println("Emloyee not found with this name");
 		}
 	}
@@ -78,8 +171,9 @@ public class EmployeeUIServiceImpl implements IEmployeeUIService
 			List<Employee> employeelist=m_employeeService.showAllEmployeeInformation();
 			System.out.println("All Employees Information : \n ");
 			printList(employeelist);
-
-		}catch(EmployeeServiceException e){
+		}
+		catch(EmployeeServiceException e)
+		{
 			System.out.println(e.getMessage());
 		}
 	}

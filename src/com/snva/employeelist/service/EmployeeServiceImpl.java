@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 import com.snva.employeelist.bean.Employee;
+import com.snva.employeelist.database.JdbcCRUD;
 import com.snva.employeelist.service.exception.EmployeeServiceException;
 import com.snva.employeelist.util.ReadUtil;
 
@@ -87,7 +88,7 @@ public class EmployeeServiceImpl implements IEmployeeService
 	 * @exception IndexOutOfBoundsException Thrown to indicate that an index of some sort
 	 * is out of range.
 	 */
-	public void removeEmployeeByName(List<Employee> employeelist1)
+	public int removeEmployeeByName(List<Employee> employeelist1) // change return value
 	{
 		int index1=0;
 		int size=employeelist1.size();
@@ -98,20 +99,27 @@ public class EmployeeServiceImpl implements IEmployeeService
 				Employee employee=employeelist1.get(0);
 				employeelist.remove(employee);
 				System.out.println("Employee Removed successfully");
+				return 0; //////////////////////////////
 			}
 			else
-				{
-					index1=m_readUtil.readInt("enter which number of employee you want to remove","enter correct value");
-					index1=index1-1;
-					Employee employee=employeelist1.get(index1);
-					employeelist.remove(employee);
-					System.out.println("Employee Removed successfully");
-				}
-
-		}catch(ConcurrentModificationException e){
+			{
+				index1=m_readUtil.readInt("enter which number of employee you want to remove","enter correct value");
+				index1=index1-1;
+				Employee employee=employeelist1.get(index1);
+				employeelist.remove(employee);
+				System.out.println("Employee Removed successfully");
+				return index1; //////////////////////////////
+			}
+		}
+		catch(ConcurrentModificationException e)
+		{
 			System.out.println(e.getMessage());
-		}catch(IndexOutOfBoundsException e){
+			return -1; ////////////////////////////
+		}
+		catch(IndexOutOfBoundsException e)
+		{
 			System.out.println(e.getMessage());
+			return -1; ////////////////////////////
 		}
 	}
 }
